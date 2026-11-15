@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import {defineConfig} from '@mikro-orm/postgresql';
 import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy';
 import { Migrator } from '@mikro-orm/migrations';
+import { SeedManager } from '@mikro-orm/seeder';
 
 dotenv.config({
   path: resolve(process.cwd(), '../.env'),
@@ -22,7 +23,14 @@ export default defineConfig({
   entities: ['./dist/**/*.entity.js'],
   entitiesTs: ['./src/**/*.entity.ts'],
 
-  extensions: [Migrator],
+  seeder: {
+    path: './dist/seeders',
+    pathTs: './src/seeders',
+    defaultSeeder: 'DatabaseSeeder',
+    glob: '!(*.d).{js,ts}',
+  },
+
+  extensions: [Migrator, SeedManager],
 
   migrations: {
     path: './dist/migrations',
