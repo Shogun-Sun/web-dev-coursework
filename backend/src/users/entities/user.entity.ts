@@ -1,10 +1,13 @@
 import {
-  Entity,
+  Entity, ManyToMany,
   PrimaryKey,
   Property,
   Unique,
 } from '@mikro-orm/decorators/legacy';
 import { randomUUID } from 'node:crypto';
+import { ManyToOne } from '@mikro-orm/decorators/es';
+import Role from '../../roles/entities/role.entity';
+import { Collection } from '@mikro-orm/core';
 
 @Entity({ tableName: 'users' })
 @Unique({ properties: ['email'] })
@@ -39,4 +42,7 @@ export class User {
     onUpdate: () => new Date(),
   })
   updatedAt: Date = new Date();
+
+  @ManyToMany(() => Role, role => role.users, {owner: true})
+  roles = new Collection<Role>(this);
 }

@@ -256,6 +256,90 @@
       "comment": null
     },
     {
+      "name": "roles_permissions",
+      "schema": "public",
+      "columns": {
+        "permission_id": {
+          "name": "permission_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "role_id",
+            "permission_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "roles_permissions_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "roles_permissions_permission_id_foreign": {
+          "columnNames": [
+            "permission_id"
+          ],
+          "constraintName": "roles_permissions_permission_id_foreign",
+          "localTableName": "public.roles_permissions",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.permissions",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "roles_permissions_role_id_foreign": {
+          "columnNames": [
+            "role_id"
+          ],
+          "constraintName": "roles_permissions_role_id_foreign",
+          "localTableName": "public.roles_permissions",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.roles",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
       "name": "users",
       "schema": "public",
       "columns": {
@@ -421,6 +505,90 @@
       "checks": [],
       "triggers": [],
       "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "users_roles",
+      "schema": "public",
+      "columns": {
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "user_id",
+            "role_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "users_roles_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "users_roles_role_id_foreign": {
+          "columnNames": [
+            "role_id"
+          ],
+          "constraintName": "users_roles_role_id_foreign",
+          "localTableName": "public.users_roles",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.roles",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "users_roles_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "users_roles_user_id_foreign",
+          "localTableName": "public.users_roles",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.users",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
       "comment": null
     }
   ],

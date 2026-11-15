@@ -1,10 +1,12 @@
 import {
-  Entity,
+  Entity, ManyToMany,
   PrimaryKey,
   Property,
   Unique,
 } from '@mikro-orm/decorators/legacy';
 import { randomUUID } from 'node:crypto';
+import Role from '../../roles/entities/role.entity';
+import { Collection } from '@mikro-orm/core';
 
 @Entity({ tableName: 'permissions' })
 @Unique({ properties: ['code'] })
@@ -23,4 +25,7 @@ export class Permission {
 
   @Property({ type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date();
+
+  @ManyToMany(() => Role, role => role.permissions)
+  roles = new Collection<Role>(this)
 }
