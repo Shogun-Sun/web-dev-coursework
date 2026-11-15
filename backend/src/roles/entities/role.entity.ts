@@ -7,12 +7,14 @@ import {
 } from '@mikro-orm/decorators/legacy';
 import { randomUUID } from 'node:crypto';
 import { User } from '../../users/entities/user.entity';
-import { Collection } from '@mikro-orm/core';
+import { Collection, OptionalProps } from '@mikro-orm/core';
 import { Permission } from '../../permissions/entities/permission.entity';
 
 @Entity({ tableName: 'roles' })
 @Unique({ properties: ['code'] })
 export default class Role {
+  [OptionalProps]?: 'createdAt' | 'updatedAt';
+
   @PrimaryKey({ type: 'uuid' })
   id: string = randomUUID();
 

@@ -7,11 +7,13 @@ import {
 import { randomUUID } from 'node:crypto';
 import { ManyToOne } from '@mikro-orm/decorators/es';
 import Role from '../../roles/entities/role.entity';
-import { Collection } from '@mikro-orm/core';
+import { Collection, OptionalProps } from '@mikro-orm/core';
 
 @Entity({ tableName: 'users' })
 @Unique({ properties: ['email'] })
 export class User {
+  [OptionalProps]?: 'createdAt' | 'updatedAt';
+
   @PrimaryKey({ type: 'uuid' })
   id: string = randomUUID();
 
