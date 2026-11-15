@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { envValidationSchema } from './config/env.validation';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -11,7 +12,8 @@ import { envValidationSchema } from './config/env.validation';
       envFilePath: '../.env',
       validationSchema: envValidationSchema,
     }),
-    DatabaseModule
+    DatabaseModule,
+    UsersModule
   ],
   controllers: [AppController],
   providers: [],
