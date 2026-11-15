@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { EntityManager } from '@mikro-orm/core';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
+  constructor(private readonly em: EntityManager) {}
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.em.findOne(User, { email });
+  }
+
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
   }
