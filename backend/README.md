@@ -39,8 +39,8 @@ npm ci
 ## 5. Run migrations and seed the database
 
 ```bash
-npm run orm -- migration:up
-npm run orm -- seeder:run
+npm run orm migration:up
+npm run orm seeder:run
 ```
 
 ## 6. Start the backend
