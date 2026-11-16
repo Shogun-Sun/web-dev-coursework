@@ -33,7 +33,7 @@ docker compose up -d
 
 ```bash
 cd backend
-npm install ci
+npm ci
 ```
 
 ## 5. Run migrations and seed the database
