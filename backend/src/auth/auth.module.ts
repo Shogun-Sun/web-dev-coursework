@@ -7,6 +7,8 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { StringValue } from 'ms';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { MikroOrmModule } from '@mikro-orm/nestjs';
+import { Session } from '../sessions/entities/session.entity';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         },
       }),
     }),
+    MikroOrmModule.forFeature([Session]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
