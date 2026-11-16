@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { type AuthenticatedUser } from './interfaces/authenticated-user.interface';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -31,5 +32,11 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   getProfile(@CurrentUser() user: AuthenticatedUser) {
     return user;
+  }
+
+  @Post('refresh')
+  @ApiOperation({summary: 'Refresh access and refresh tokens'})
+  refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refresh(refreshTokenDto);
   }
 }

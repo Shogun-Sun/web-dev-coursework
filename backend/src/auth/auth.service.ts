@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import ms, { type StringValue } from 'ms';
 import { randomUUID } from 'node:crypto';
 import { Session } from '../sessions/entities/session.entity';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Injectable()
 export class AuthService {
@@ -79,6 +80,98 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      tokenType: 'Bearer',
+    };
+  }
+
+  async refresh(refreshTokenDto: RefreshTokenDto) {
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+
+    let payload: {
+      sub: string;
+      email: string;
+      sid: string;
+      type: string;
+    };
+
+    try {
+      payload = await this.jwtService.verifyAsync(
+        refreshTokenDto.refreshToken,
+        {
+          secret: refreshSecret,
+        },
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (payload.type !== 'refresh' || !payload.sid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const session = await this.em.findOne(
+      Session,
+      {
+        id: payload.sid,
+      },
+      { populate: ['user'] },
+    );
+
+    if (
+      !session ||
+      session.revokedAt ||
+      session.expiresAt <= new Date() ||
+      session.user.id !== payload.sub
+    ) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isTokenValid = await verify(
+      session.tokenHash,
+      refreshTokenDto.refreshToken,
+    );
+
+    if (!isTokenValid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const refreshExpiresIn = this.configService.getOrThrow<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+    ) as StringValue;
+
+    const refreshExpiresInMs = ms(refreshExpiresIn);
+
+    if (!refreshExpiresInMs || refreshExpiresInMs <= 0) {
+      throw new Error('Invalid JWT_REFRESH_EXPIRES_IN value');
+    }
+
+    const newRefreshToken = await this.jwtService.signAsync(
+      {
+        sub: session.user.id,
+        email: session.user.email,
+        sid: session.id,
+        type: 'refresh',
+      },
+      {
+        secret: refreshSecret,
+        expiresIn: refreshExpiresInMs,
+      },
+    );
+
+    const newAccessToken = await this.jwtService.signAsync({
+      sub: session.user.id,
+      email: session.user.email,
+    });
+
+    session.tokenHash = await hash(newRefreshToken);
+    session.expiresAt = new Date(Date.now() + refreshExpiresInMs);
+
+    await this.em.flush();
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       tokenType: 'Bearer',
     }
   }
