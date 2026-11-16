@@ -35,8 +35,14 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @ApiOperation({summary: 'Refresh access and refresh tokens'})
+  @ApiOperation({ summary: 'Refresh access and refresh tokens' })
   refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto);
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout from current session' })
+  logout(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.logout(refreshTokenDto);
   }
 }

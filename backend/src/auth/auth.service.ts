@@ -12,12 +12,17 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly refreshSecret: string;
+
   constructor(
     private readonly userService: UsersService,
     private readonly jwtService: JwtService,
     private readonly em: EntityManager,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+  }
 
   async login(loginDto: LoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
@@ -38,8 +43,6 @@ export class AuthService {
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
-    const refreshSecret =
-      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
 
     const refreshExpiresIn = this.configService.getOrThrow<string>(
       'JWT_REFRESH_EXPIRES_IN',
@@ -60,7 +63,7 @@ export class AuthService {
         type: 'refresh',
       },
       {
-        secret: refreshSecret,
+        secret: this.refreshSecret,
         expiresIn: refreshExpiresInMs,
       },
     );
@@ -85,26 +88,7 @@ export class AuthService {
   }
 
   async refresh(refreshTokenDto: RefreshTokenDto) {
-    const refreshSecret =
-      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
-
-    let payload: {
-      sub: string;
-      email: string;
-      sid: string;
-      type: string;
-    };
-
-    try {
-      payload = await this.jwtService.verifyAsync(
-        refreshTokenDto.refreshToken,
-        {
-          secret: refreshSecret,
-        },
-      );
-    } catch {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    const payload = await this.verifyRefreshToken(refreshTokenDto.refreshToken);
 
     if (payload.type !== 'refresh' || !payload.sid) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -154,7 +138,7 @@ export class AuthService {
         type: 'refresh',
       },
       {
-        secret: refreshSecret,
+        secret: this.refreshSecret,
         expiresIn: refreshExpiresInMs,
       },
     );
@@ -173,6 +157,65 @@ export class AuthService {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
       tokenType: 'Bearer',
+    };
+  }
+
+  async logout(refreshTokenDto: RefreshTokenDto) {
+    const payload = await this.verifyRefreshToken(refreshTokenDto.refreshToken);
+
+    const session = await this.em.findOne(
+      Session,
+      {
+        id: payload.sid,
+      },
+      { populate: ['user'] },
+    );
+
+    if (
+      !session ||
+      session.user.id !== payload.sub ||
+      session.expiresAt <= new Date()
+    ) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isTokenValid = await verify(
+      session.tokenHash,
+      refreshTokenDto.refreshToken,
+    );
+
+    if (!isTokenValid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (!session.revokedAt) {
+      session.revokedAt = new Date();
+      await this.em.flush();
+    }
+
+    return {
+      message: 'Logged out successfully',
+    };
+  }
+
+  private async verifyRefreshToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        sub: string;
+        email: string;
+        sid: string;
+        type: string;
+      }>(refreshToken, {
+        secret: this.refreshSecret,
+      });
+
+      if (payload.type !== 'refresh' || !payload.sid) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      return payload;
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
     }
   }
 }
