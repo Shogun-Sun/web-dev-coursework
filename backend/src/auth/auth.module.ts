@@ -9,6 +9,7 @@ import { StringValue } from 'ms';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Session } from '../sessions/entities/session.entity';
+import { RefreshToken } from './refresh-token.entity';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { Session } from '../sessions/entities/session.entity';
         },
       }),
     }),
-    MikroOrmModule.forFeature([Session]),
+    MikroOrmModule.forFeature([Session, RefreshToken]),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

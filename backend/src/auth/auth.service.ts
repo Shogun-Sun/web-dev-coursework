@@ -13,6 +13,7 @@ import ms, { type StringValue } from 'ms';
 import { randomUUID } from 'node:crypto';
 import { Session } from '../sessions/entities/session.entity';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {RefreshToken} from "./refresh-token.entity";
 
 @Injectable()
 export class AuthService {
@@ -59,11 +60,14 @@ export class AuthService {
     }
 
     const sessionId = randomUUID();
+    const jti = randomUUID();
+
 
     const refreshToken = await this.jwtService.signAsync(
       {
         ...payload,
         sid: sessionId,
+        jti,
         type: 'refresh',
       },
       {
@@ -81,7 +85,14 @@ export class AuthService {
       expiresAt: new Date(Date.now() + refreshExpiresInMs),
     });
 
-    this.em.persist(session);
+    const refreshTokenEntity = this.em.create(RefreshToken, {
+      session,
+      jti,
+      tokenHash,
+      expiresAt: session.expiresAt,
+    });
+
+    this.em.persist([session, refreshTokenEntity]);
     await this.em.flush();
 
     return {
