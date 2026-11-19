@@ -7,13 +7,13 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
 import { hash, verify } from 'argon2';
-import { EntityManager } from '@mikro-orm/core';
+import { EntityManager, LockMode } from '@mikro-orm/core';
 import { ConfigService } from '@nestjs/config';
 import ms, { type StringValue } from 'ms';
 import { randomUUID } from 'node:crypto';
 import { Session } from '../sessions/entities/session.entity';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import {RefreshToken} from "./refresh-token.entity";
+import { RefreshToken } from './refresh-token.entity';
 
 @Injectable()
 export class AuthService {
@@ -62,7 +62,6 @@ export class AuthService {
     const sessionId = randomUUID();
     const jti = randomUUID();
 
-
     const refreshToken = await this.jwtService.signAsync(
       {
         ...payload,
@@ -105,33 +104,7 @@ export class AuthService {
   async refresh(refreshTokenDto: RefreshTokenDto) {
     const payload = await this.verifyRefreshToken(refreshTokenDto.refreshToken);
 
-    if (payload.type !== 'refresh' || !payload.sid) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    const session = await this.em.findOne(
-      Session,
-      {
-        id: payload.sid,
-      },
-      { populate: ['user'] },
-    );
-
-    if (
-      !session ||
-      session.revokedAt ||
-      session.expiresAt <= new Date() ||
-      session.user.id !== payload.sub
-    ) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    const isTokenValid = await verify(
-      session.tokenHash,
-      refreshTokenDto.refreshToken,
-    );
-
-    if (!isTokenValid) {
+    if (payload.type !== 'refresh' || !payload.sid || !payload.jti) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -145,32 +118,119 @@ export class AuthService {
       throw new Error('Invalid JWT_REFRESH_EXPIRES_IN value');
     }
 
-    const newRefreshToken = await this.jwtService.signAsync(
-      {
+    const result = await this.em.transactional(async (em) => {
+      const session = await em.findOne(
+          Session, {
+            id: payload.sid,
+          },
+          {
+            populate: ['user'],
+            lockMode: LockMode.PESSIMISTIC_WRITE,
+          },
+      );
+
+      if (!session) {
+        return { status: 'invalid' as const };
+      }
+
+      const storedToken = await em.findOne(RefreshToken, {
+        jti: payload.jti,
+        session: session.id,
+      });
+
+      if (!storedToken) {
+        return { status: 'invalid' as const };
+      }
+
+      if (storedToken.revokedAt) {
+        if (!session.revokedAt) {
+          session.revokedAt = new Date();
+          await em.flush();
+        }
+
+        return { status: 'reused' as const };
+      }
+
+      const now = new Date();
+
+      if (
+          session.revokedAt ||
+          session.expiresAt <= now ||
+          storedToken.expiresAt <= now ||
+          session.user.id !== payload.sub
+      ) {
+        return { status: 'invalid' as const };
+      }
+
+      const isTokenValid = await verify(
+          storedToken.tokenHash,
+          refreshTokenDto.refreshToken,
+      );
+
+      if (!isTokenValid) {
+        return { status: 'invalid' as const };
+      }
+
+      storedToken.revokedAt = now;
+
+      const newJti = randomUUID();
+
+      const newRefreshToken = await this.jwtService.signAsync(
+          {
+            sub: session.user.id,
+            email: session.user.email,
+            sid: session.id,
+            jti: newJti,
+            type: 'refresh',
+          },
+          {
+            secret: this.refreshSecret,
+            expiresIn: refreshExpiresInMs,
+          },
+      );
+
+      const newAccessToken = await this.jwtService.signAsync({
         sub: session.user.id,
         email: session.user.email,
-        sid: session.id,
-        type: 'refresh',
-      },
-      {
-        secret: this.refreshSecret,
-        expiresIn: refreshExpiresInMs,
-      },
-    );
+      });
 
-    const newAccessToken = await this.jwtService.signAsync({
-      sub: session.user.id,
-      email: session.user.email,
+      const newTokenHash = await hash(newRefreshToken);
+      const newExpiresAt = new Date(now.getTime() + refreshExpiresInMs);
+
+      session.tokenHash = newTokenHash;
+      session.expiresAt = newExpiresAt;
+
+      const newRefreshTokenEntity = em.create(RefreshToken, {
+        session,
+        jti: newJti,
+        tokenHash: newTokenHash,
+        expiresAt: newExpiresAt,
+      });
+
+      em.persist(newRefreshTokenEntity);
+
+      await em.flush();
+
+      return {
+        status: 'success' as const,
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
     });
 
-    session.tokenHash = await hash(newRefreshToken);
-    session.expiresAt = new Date(Date.now() + refreshExpiresInMs);
+    if (result.status === 'reused') {
+      throw new UnauthorizedException(
+          'Refresh token reuse detected. Session revoked.',
+      );
+    }
 
-    await this.em.flush();
+    if (result.status === 'invalid') {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
 
     return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       tokenType: 'Bearer',
     };
   }
@@ -219,6 +279,7 @@ export class AuthService {
         sub: string;
         email: string;
         sid: string;
+        jti: string;
         type: string;
       }>(refreshToken, {
         secret: this.refreshSecret,
