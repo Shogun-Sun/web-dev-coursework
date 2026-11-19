@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
@@ -267,6 +271,31 @@ export class AuthService {
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
       })),
+    };
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.em.findOne(Session, {
+      id: sessionId,
+      user: { id: userId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (session.revokedAt) {
+      return {
+        message: 'Session already revoked',
+      };
+    }
+
+    session.revokedAt = new Date();
+
+    await this.em.flush();
+
+    return {
+      message: 'Session revoked successfully',
     };
   }
 }

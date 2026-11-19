@@ -6,6 +6,8 @@ import {
   UseGuards,
   Req,
   Res,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -60,5 +62,16 @@ export class AuthController {
   @ApiOperation({summary: 'Get active sessions'})
   getActiveSessions(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getActiveSessions(user.id);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Revoke a specific session' })
+  revokeSession(
+      @CurrentUser() user: AuthenticatedUser,
+      @Param('id') sessionId: string,
+  ) {
+    return this.authService.revokeSession(user.id, sessionId);
   }
 }
