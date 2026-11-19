@@ -53,4 +53,12 @@ export class AuthController {
   logoutAll(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.logoutAll(user.id);
   }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({summary: 'Get active sessions'})
+  getActiveSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getActiveSessions(user.id);
+  }
 }

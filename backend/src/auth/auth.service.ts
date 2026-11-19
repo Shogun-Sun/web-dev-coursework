@@ -243,6 +243,30 @@ export class AuthService {
     return {
       message: 'All sessions logged out successfully',
       revokedCount: sessions.length,
-    }
+    };
+  }
+
+  async getActiveSessions(userId: string) {
+    const sessions = await this.em.find(
+      Session,
+      {
+        user: { id: userId },
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      },
+      {
+        orderBy: {
+          createdAt: 'DESC',
+        },
+      },
+    );
+
+    return {
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      })),
+    };
   }
 }
