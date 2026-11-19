@@ -218,4 +218,31 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+
+  async logoutAll(userId: string) {
+    const sessions = await this.em.find(Session, {
+      user: { id: userId },
+      revokedAt: null,
+    });
+
+    if (sessions.length === 0) {
+      return {
+        message: 'All sessions logged out successfully',
+        revokedCount: 0,
+      };
+    }
+
+    const now = new Date();
+
+    for (const session of sessions) {
+      session.revokedAt = now;
+    }
+
+    await this.em.flush();
+
+    return {
+      message: 'All sessions logged out successfully',
+      revokedCount: sessions.length,
+    }
+  }
 }

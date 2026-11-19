@@ -45,4 +45,12 @@ export class AuthController {
   logout(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.logout(refreshTokenDto);
   }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout from all sessions' })
+  logoutAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.logoutAll(user.id);
+  }
 }
