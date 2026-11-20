@@ -53,9 +53,9 @@
 - [x] Связь ролей с разрешениями
 
 ### Permissions
-- [ ] Определение naming convention для permissions
-- [ ] Составление списка системных permissions
-- [ ] PermissionsSeeder
+- [x] Определение naming convention для permissions
+- [x] Составление списка системных permissions
+- [x] PermissionsSeeder
 - [ ] Создание PermissionsModule
 - [ ] Создание PermissionsService
 - [ ] Создание PermissionsController
