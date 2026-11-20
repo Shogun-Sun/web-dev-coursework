@@ -18,9 +18,6 @@ export class Session {
   @ManyToOne(() => User)
   user!: User;
 
-  @Property({ type: 'string', hidden: true })
-  tokenHash!: string;
-
   @Property({ type: 'datetime' })
   expiresAt!: Date;
 
