@@ -51,9 +51,45 @@
 - [x] Сущности Role и Permission
 - [x] Связь пользователей с ролями
 - [x] Связь ролей с разрешениями
-- [ ] Заполнение системных разрешений
-- [ ] Декораторы и Guards для проверки доступа
+
+### Permissions
+- [ ] Определение naming convention для permissions
+- [ ] Составление списка системных permissions
+- [ ] PermissionsSeeder
+- [ ] Создание PermissionsModule
+- [ ] Создание PermissionsService
+- [ ] Создание PermissionsController
+- [ ] DTO для создания и обновления
+- [ ] CRUD permissions
+- [ ] Обработка уникальности code
+- [ ] Swagger-документация
+
+### Управление permissions ролей
+- [ ] Получение permissions роли
+- [ ] Назначение permissions роли
+- [ ] Снятие permissions с роли
+- [ ] Замена набора permissions роли
+
+### Управление ролями
+- [ ] CRUD ролей
+- [ ] Получение ролей пользователя
+- [ ] Назначение ролей пользователю
+- [ ] Снятие ролей с пользователя
+- [ ] Замена набора ролей пользователя
+
+### Authorization
+- [ ] Permissions decorator
+- [ ] PermissionsGuard
+- [ ] Получение permissions пользователя
+- [ ] Проверка permissions
+- [ ] Обработка 403 Forbidden
 - [ ] Интеграция RBAC с API
+- [ ] Настройка permissions базовых ролей
+
+### Тестирование
+- [ ] Тестирование CRUD permissions
+- [ ] Тестирование назначения permissions ролям
+- [ ] Тестирование назначения ролей пользователям
 - [ ] Тестирование разграничения доступа
 
 ## 5. Управление пользователями
