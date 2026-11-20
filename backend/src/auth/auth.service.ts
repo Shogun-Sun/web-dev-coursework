@@ -148,7 +148,19 @@ export class AuthService {
 
       if (storedToken.revokedAt) {
         if (!session.revokedAt) {
-          session.revokedAt = new Date();
+          const revokedAt = new Date();
+
+          session.revokedAt = revokedAt;
+
+          const activeRefreshTokens = await em.find(RefreshToken, {
+            session: session.id,
+            revokedAt: null,
+          });
+
+          for (const activeRefreshToken of activeRefreshTokens) {
+            activeRefreshToken.revokedAt = revokedAt;
+          }
+
           await em.flush();
         }
 
