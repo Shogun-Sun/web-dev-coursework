@@ -47,7 +47,7 @@ describe('AuthController (e2e)', () => {
     });
 
     em.persist(user);
-    await em.flush()
+    await em.flush();
 
     testUserId = user.id;
   });
@@ -155,6 +155,25 @@ describe('AuthController (e2e)', () => {
         })
         .expect(401);
     });
+
+    it('should return 429 when too many login attempts are made', async () => {
+      const responses = [];
+
+      for (let i = 0; i < 6; i++) {
+        const response = await request(app.getHttpServer())
+          .post('/auth/login')
+          .send({
+            email: 'nonexistent@example.com',
+            password: 'WrongPassword123!',
+          });
+
+        responses.push(response.status);
+      }
+
+      expect(responses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
+
+      expect(responses[5]).toBe(429);
+    });
   });
 
   describe('GET /auth/profile', () => {
@@ -182,7 +201,6 @@ describe('AuthController (e2e)', () => {
     it('should rotate refresh token successfully', async () => {
       const loginResponse = await login();
       expect(loginResponse.status).toBe(201);
-
 
       const oldRefreshToken = loginResponse.body.refreshToken;
 
@@ -236,7 +254,6 @@ describe('AuthController (e2e)', () => {
     it('should revoke session when an old refresh token is reused', async () => {
       const loginResponse = await login();
       expect(loginResponse.status).toBe(201);
-
 
       const oldRefreshToken = loginResponse.body.refreshToken;
 
@@ -321,7 +338,6 @@ describe('AuthController (e2e)', () => {
       const loginResponse = await login();
       expect(loginResponse.status).toBe(201);
 
-
       await request(app.getHttpServer())
         .post('/auth/logout')
         .send({
@@ -349,7 +365,6 @@ describe('AuthController (e2e)', () => {
     it('should reject logout with already revoked refresh token', async () => {
       const loginResponse = await login();
       expect(loginResponse.status).toBe(201);
-
 
       const refreshToken = loginResponse.body.refreshToken;
 

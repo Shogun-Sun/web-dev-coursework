@@ -18,6 +18,7 @@ import { type AuthenticatedUser } from './interfaces/authenticated-user.interfac
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { type Request } from 'express';
 import { UAParser } from 'ua-parser-js';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -25,6 +26,12 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 60_000,
+    },
+  })
   @ApiOperation({ summary: 'User login' })
   login(@Body() loginDto: LoginDto, @Req() request: Request) {
     const userAgent = request.headers['user-agent'];
@@ -56,6 +63,12 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   @ApiOperation({ summary: 'Refresh access and refresh tokens' })
   refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto);
