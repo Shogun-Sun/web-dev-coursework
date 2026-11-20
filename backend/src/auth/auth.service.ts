@@ -407,27 +407,48 @@ export class AuthService {
   }
 
   async revokeSession(userId: string, sessionId: string) {
-    const session = await this.em.findOne(Session, {
-      id: sessionId,
-      user: { id: userId },
-    });
+    return this.em.transactional(async (transactionalEm) => {
+      const session = await transactionalEm.findOne(
+        Session,
+        {
+          id: sessionId,
+          user: {
+            id: userId,
+          },
+        },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+        },
+      );
 
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
+      if (!session) {
+        throw new NotFoundException('Session not found');
+      }
 
-    if (session.revokedAt) {
+      if (session.revokedAt) {
+        return {
+          message: 'Session already revoked',
+        };
+      }
+
+      const now = new Date();
+
+      session.revokedAt = now;
+
+      const activeRefreshTokens = await transactionalEm.find(RefreshToken, {
+        session: session.id,
+        revokedAt: null,
+      });
+
+      for (const activeRefreshToken of activeRefreshTokens) {
+        activeRefreshToken.revokedAt = now;
+      }
+
+      await transactionalEm.flush();
+
       return {
-        message: 'Session already revoked',
+        message: 'Session revoked successfully',
       };
-    }
-
-    session.revokedAt = new Date();
-
-    await this.em.flush();
-
-    return {
-      message: 'Session revoked successfully',
-    };
+    });
   }
 }
