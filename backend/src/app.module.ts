@@ -8,6 +8,7 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { AuthModule } from './auth/auth.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SessionsModule } from './sessions/sessions.module';
       envFilePath: '../.env',
       validationSchema: envValidationSchema,
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     UsersModule,
     RolesModule,

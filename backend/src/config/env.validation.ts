@@ -11,4 +11,7 @@ export const envValidationSchema = Joi.object({
   POSTGRES_USER: Joi.string().required(),
   POSTGRES_PASSWORD: Joi.string().required(),
   POSTGRES_DB: Joi.string().required(),
-})
+
+  SESSION_RETENTION_DAYS: Joi.number().integer().min(1).default(30),
+  SESSION_CLEANUP_CRON: Joi.string().default('0 3 * * *'),
+});
