@@ -16,6 +16,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { type AuthenticatedUser } from './interfaces/authenticated-user.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { type Request } from 'express';
+import { UAParser } from 'ua-parser-js';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -24,8 +26,25 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'User login' })
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  login(@Body() loginDto: LoginDto, @Req() request: Request) {
+    const userAgent = request.headers['user-agent'];
+
+    const parser = new UAParser(userAgent);
+    const result = parser.getResult();
+
+    const deviceName = [
+      result.browser.name,
+      result.os.name,
+      result.device.type ?? 'Desktop',
+    ]
+      .filter(Boolean)
+      .join(' / ');
+
+    return this.authService.login(loginDto, {
+      ipAddress: request.ip,
+      userAgent: userAgent,
+      deviceName: deviceName,
+    });
   }
 
   @Get('profile')
@@ -59,7 +78,7 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({summary: 'Get active sessions'})
+  @ApiOperation({ summary: 'Get active sessions' })
   getActiveSessions(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getActiveSessions(user.id);
   }
@@ -69,8 +88,8 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Revoke a specific session' })
   revokeSession(
-      @CurrentUser() user: AuthenticatedUser,
-      @Param('id') sessionId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') sessionId: string,
   ) {
     return this.authService.revokeSession(user.id, sessionId);
   }

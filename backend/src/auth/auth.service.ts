@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { Session } from '../sessions/entities/session.entity';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RefreshToken } from './refresh-token.entity';
+import { SessionMetadata } from './interfaces/session-metadata.interface';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +30,7 @@ export class AuthService {
       this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, metadata: SessionMetadata) {
     const user = await this.userService.findByEmail(loginDto.email);
 
     if (!user || !user.isActive) {
@@ -80,6 +81,9 @@ export class AuthService {
     const session = this.em.create(Session, {
       id: sessionId,
       user,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      deviceName: metadata.deviceName,
       expiresAt: new Date(Date.now() + refreshExpiresInMs),
     });
 
