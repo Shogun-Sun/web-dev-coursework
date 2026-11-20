@@ -43,9 +43,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    const sessionId = randomUUID();
+
     const payload = {
       sub: user.id,
       email: user.email,
+      sid: sessionId,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -60,7 +63,6 @@ export class AuthService {
       throw new Error('Invalid JWT_REFRESH_EXPIRES_IN value');
     }
 
-    const sessionId = randomUUID();
     const jti = randomUUID();
 
     const refreshToken = await this.jwtService.signAsync(
@@ -208,6 +210,7 @@ export class AuthService {
       const newAccessToken = await this.jwtService.signAsync({
         sub: session.user.id,
         email: session.user.email,
+        sid: session.id,
       });
 
       const newTokenHash = await hash(newRefreshToken);
