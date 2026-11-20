@@ -80,7 +80,6 @@ export class AuthService {
     const session = this.em.create(Session, {
       id: sessionId,
       user,
-      tokenHash,
       expiresAt: new Date(Date.now() + refreshExpiresInMs),
     });
 
@@ -120,13 +119,14 @@ export class AuthService {
 
     const result = await this.em.transactional(async (em) => {
       const session = await em.findOne(
-          Session, {
-            id: payload.sid,
-          },
-          {
-            populate: ['user'],
-            lockMode: LockMode.PESSIMISTIC_WRITE,
-          },
+        Session,
+        {
+          id: payload.sid,
+        },
+        {
+          populate: ['user'],
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+        },
       );
 
       if (!session) {
@@ -154,17 +154,17 @@ export class AuthService {
       const now = new Date();
 
       if (
-          session.revokedAt ||
-          session.expiresAt <= now ||
-          storedToken.expiresAt <= now ||
-          session.user.id !== payload.sub
+        session.revokedAt ||
+        session.expiresAt <= now ||
+        storedToken.expiresAt <= now ||
+        session.user.id !== payload.sub
       ) {
         return { status: 'invalid' as const };
       }
 
       const isTokenValid = await verify(
-          storedToken.tokenHash,
-          refreshTokenDto.refreshToken,
+        storedToken.tokenHash,
+        refreshTokenDto.refreshToken,
       );
 
       if (!isTokenValid) {
@@ -176,17 +176,17 @@ export class AuthService {
       const newJti = randomUUID();
 
       const newRefreshToken = await this.jwtService.signAsync(
-          {
-            sub: session.user.id,
-            email: session.user.email,
-            sid: session.id,
-            jti: newJti,
-            type: 'refresh',
-          },
-          {
-            secret: this.refreshSecret,
-            expiresIn: refreshExpiresInMs,
-          },
+        {
+          sub: session.user.id,
+          email: session.user.email,
+          sid: session.id,
+          jti: newJti,
+          type: 'refresh',
+        },
+        {
+          secret: this.refreshSecret,
+          expiresIn: refreshExpiresInMs,
+        },
       );
 
       const newAccessToken = await this.jwtService.signAsync({
@@ -197,7 +197,6 @@ export class AuthService {
       const newTokenHash = await hash(newRefreshToken);
       const newExpiresAt = new Date(now.getTime() + refreshExpiresInMs);
 
-      session.tokenHash = newTokenHash;
       session.expiresAt = newExpiresAt;
 
       const newRefreshTokenEntity = em.create(RefreshToken, {
@@ -220,7 +219,7 @@ export class AuthService {
 
     if (result.status === 'reused') {
       throw new UnauthorizedException(
-          'Refresh token reuse detected. Session revoked.',
+        'Refresh token reuse detected. Session revoked.',
       );
     }
 
@@ -238,39 +237,70 @@ export class AuthService {
   async logout(refreshTokenDto: RefreshTokenDto) {
     const payload = await this.verifyRefreshToken(refreshTokenDto.refreshToken);
 
-    const session = await this.em.findOne(
-      Session,
-      {
-        id: payload.sid,
-      },
-      { populate: ['user'] },
-    );
+    return this.em.transactional(async (transactionalEm) => {
+      const session = await transactionalEm.findOne(
+        Session,
+        {
+          id: payload.sid,
+          user: {
+            id: payload.sub,
+          },
+        },
+        {
+          populate: ['user'],
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+        },
+      );
 
-    if (
-      !session ||
-      session.user.id !== payload.sub ||
-      session.expiresAt <= new Date()
-    ) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+      if (!session || session.expiresAt <= new Date()) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-    const isTokenValid = await verify(
-      session.tokenHash,
-      refreshTokenDto.refreshToken,
-    );
+      if (session.revokedAt) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-    if (!isTokenValid) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+      const refreshToken = await transactionalEm.findOne(RefreshToken, {
+        jti: payload.jti,
+        session: session.id,
+      });
 
-    if (!session.revokedAt) {
-      session.revokedAt = new Date();
-      await this.em.flush();
-    }
+      if (
+        !refreshToken ||
+        refreshToken.revokedAt ||
+        refreshToken.expiresAt <= new Date()
+      ) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-    return {
-      message: 'Logged out successfully',
-    };
+      const isTokenValid = await verify(
+        refreshToken.tokenHash,
+        refreshTokenDto.refreshToken,
+      );
+
+      if (!isTokenValid) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const now = new Date();
+
+      session.revokedAt = now;
+
+      const activeRefreshTokens = await transactionalEm.find(RefreshToken, {
+        session: session.id,
+        revokedAt: null,
+      });
+
+      for (const activeRefreshToken of activeRefreshTokens) {
+        activeRefreshToken.revokedAt = now;
+      }
+
+      await transactionalEm.flush();
+
+      return {
+        message: 'Logged out successfully',
+      };
+    });
   }
 
   private async verifyRefreshToken(refreshToken: string) {
@@ -285,7 +315,15 @@ export class AuthService {
         secret: this.refreshSecret,
       });
 
-      if (payload.type !== 'refresh' || !payload.sid) {
+      if (
+        payload.type !== 'refresh' ||
+        typeof payload.sid !== 'string' ||
+        typeof payload.jti !== 'string' ||
+        typeof payload.sub !== 'string' ||
+        !payload.sid ||
+        !payload.jti ||
+        !payload.sub
+      ) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -296,30 +334,52 @@ export class AuthService {
   }
 
   async logoutAll(userId: string) {
-    const sessions = await this.em.find(Session, {
-      user: { id: userId },
-      revokedAt: null,
-    });
+    return this.em.transactional(async (transactionalEm) => {
+      const sessions = await transactionalEm.find(
+        Session,
+        {
+          user: {
+            id: userId,
+          },
+          revokedAt: null,
+        },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+        },
+      );
+      if (sessions.length === 0) {
+        return {
+          message: 'All sessions logged out successfully',
+          revokedCount: 0,
+        };
+      }
 
-    if (sessions.length === 0) {
+      const now = new Date();
+
+      for (const session of sessions) {
+        session.revokedAt = now;
+      }
+
+      const sessionIds = sessions.map((session) => session.id);
+      const refreshTokens = await transactionalEm.find(RefreshToken, {
+        session: {
+          id: {
+            $in: sessionIds,
+          },
+        },
+        revokedAt: null,
+      });
+      for (const refreshToken of refreshTokens) {
+        refreshToken.revokedAt = now;
+      }
+
+      await transactionalEm.flush();
+
       return {
         message: 'All sessions logged out successfully',
-        revokedCount: 0,
+        revokedCount: sessions.length,
       };
-    }
-
-    const now = new Date();
-
-    for (const session of sessions) {
-      session.revokedAt = now;
-    }
-
-    await this.em.flush();
-
-    return {
-      message: 'All sessions logged out successfully',
-      revokedCount: sessions.length,
-    };
+    });
   }
 
   async getActiveSessions(userId: string) {
