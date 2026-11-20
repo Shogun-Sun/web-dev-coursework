@@ -8,5 +8,6 @@ import { Permission } from './entities/permission.entity';
   imports: [MikroOrmModule.forFeature([Permission])],
   controllers: [PermissionsController],
   providers: [PermissionsService],
+  exports: [PermissionsService],
 })
 export class PermissionsModule {}
